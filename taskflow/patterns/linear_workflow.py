@@ -43,10 +43,11 @@ class Workflow(object):
         # should be set to true, instead of the default value of false.
         self.tolerant = tolerant
         # Ordered dicts are used so that we can nicely refer to the tasks by
-        # name and easily fetch there results but also allow for the running
+        # name and easily fetch their results but also allow for the running
         # of said tasks to happen in a linear order.
-        self.tasks = dict_provider.OrderedDict()
-        self.results = dict_provider.OrderedDict()
+        self.tasks = []
+        self.results = []
+        self.root = None
         # If this workflow has a parent workflow/s which need to be reverted if
         # this workflow fails then please include them here to allow this child
         # to call the parents...
@@ -67,12 +68,22 @@ class Workflow(object):
         # storage backend).
         self.listeners = []
 
-    def __setitem__(self, name, task):
-        self.tasks[name] = task
 
-    def __getitem__(self, name):
-        return self.results[name]
+    def chain(self, task, *args, **kwargs):
+        """ Chain task to end of end of workflow """
+        self.tasks.append(task)
+        if( len(self.tasks) == 1):
+            # set pointer to first task in workflow
+            self.root = task.s(*args, **kwargs)
+        else:
+            # link tasks together
+            self.tasks[-2].link(task.s(*args, **kwargs))
 
+    def run(self, context, *args, **kwargs):
+        """ Kick of root task """
+        root(context)
+    
+    """
     def run(self, context, *args, **kwargs):
         for (name, task) in self.tasks.iteritems():
             try:
@@ -136,4 +147,6 @@ class Workflow(object):
             # Rollback any parents workflows if they exist...
             for p in self.parents:
                 p.rollback(context, cause)
+
+    """
     

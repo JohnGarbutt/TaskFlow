@@ -16,6 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sys
 import abc
 
 
@@ -23,10 +24,35 @@ class Task(object):
     """An abstraction that defines a potential piece of work that can be
     applied and can be reverted to undo the work as a single unit.
     """
-    __metaclass__ = abc.ABCMeta
+    # __metaclass__ = abc.ABCMeta
 
     def __str__(self):
         return "Task: %s" % (self.__class__.__name__)
+
+    def __init__(self, apply, rollback=None):
+        self._apply = apply
+        self._rollback = rollback
+        self._status = "NEW"
+        self._children = []
+        self._name = self.gen_task_name(apply)
+        # self._name = apply.__name__
+
+    def __call__(self, *args, **kwargs):
+        self.apply(*args, **kwargs)    
+
+    def gen_task_name(self, method):
+        """Generate unique task name"""
+        module = sys.modules[method.__module__]
+        if module is not None:
+            module_name = module.__name__
+        method_name = method.__name__
+        return '.'.join(n for n in (module_name, method_name) if n)
+            
+
+    def get_status(self):
+        """Dynamically get task status stored in DB"""
+        # driver.get_status(self._name)
+        pass
 
     @abc.abstractmethod
     def apply(self, context, *args, **kwargs):
