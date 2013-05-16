@@ -43,29 +43,18 @@ class LogBook(object):
         self.uri = resource_uri
 
     @abc.abstractmethod
-    def register_workflow(self, wf_name):
-        """Atomically adds a new entry for workflows in the logbook"""
-        #Check wfs already saved in logbook
-        #Make sure wf_name doesn't overwrite a previous name
-        #Save wf
+    def verify_workflow(self, wf_name):
+        """Checks to make sure WF name is valid"""
         raise NotImplementedError()   
 
     @abc.abstractmethod
     def update_task(self, wf_name, task_name, **kwargs):
-        """Registers a task to a given workflow"""
-        # Pull wf from DB
-        # make sure wf exists
-        # if task name already exists, check instance # and increment
-        # add task to wf with args
-        # write task back to DB
+        """Atomically updates a task in logbook"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def delete_workflow(self, wf_name):
         """Remove WF from DB after WF completion or otherwise"""
-        # Check to see all tasks in WF are success
-        # if not LOG.warning("WARNING: Not all tasks have completed!")
-        # Remove WF from logbook
         raise NotImplementedError()
 
     def close(self):

@@ -20,6 +20,8 @@ import logging
 
 from taskflow import logbook
 
+from celery import chord
+
 LOG = logging.getLogger(__name__)
 
 
@@ -72,13 +74,13 @@ class Workflow(object):
                 self.root.append(task.s(context))
                 LOG.info('WF %s added root task %s' %
                          (self.name, task.name))
-         
+        callback_task.name = '%s.%s' % (self.name, callback_task.name)
+        self._tasks.append(callback_task)
+
+        #TODO: Need to set up chord so that it's not executed immediately
+        c = chord(header, body=callback_task)
 
     def run(self, context, *args, **kwargs):
         """ Start root task and kick off workflow """
         root(context)
         LOG.info('WF %s has been started' % (self.name,))
-
-    def set_result(self, task, 
- 
-
