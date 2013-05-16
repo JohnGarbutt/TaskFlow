@@ -19,10 +19,6 @@
 import collections as dict_provider
 import copy
 
-# OrderedDict is only in 2.7 or greater :-(
-if not hasattr(dict_provider, 'OrderedDict'):
-    import ordereddict as dict_provider
-
 from nova import workflow
 from nova.openstack.common import excutils
 from nova.openstack.common import log as logging
@@ -42,10 +38,6 @@ class Workflow(object):
         # If this chain can ignore individual task reversion failure then this
         # should be set to true, instead of the default value of false.
         self.tolerant = tolerant
-        # Ordered dicts are used so that we can nicely refer to the tasks by
-        # name and easily fetch their results but also allow for the running
-        # of said tasks to happen in a linear order.
-        self.tasks = []
         self.results = []
         self.root = None
         # If this workflow has a parent workflow/s which need to be reverted if
@@ -71,82 +63,23 @@ class Workflow(object):
 
     def chain(self, task, *args, **kwargs):
         """ Chain task to end of end of workflow """
+        # Register task to WF in logbook
+        logbook.register_task(self.name, task.name)
+        # Link task name to WF
+        task.name = '%s.%s' % (self.name, task.name)
         self.tasks.append(task)
         if( len(self.tasks) == 1):
             # set pointer to first task in workflow
             self.root = task.s(*args, **kwargs)
+            LOG.info('WF %s root task set to %s' % (self.name, task.name))
         else:
-            # link tasks together
+            # Set following task as a callback for preceding task
             self.tasks[-2].link(task.s(*args, **kwargs))
 
     def run(self, context, *args, **kwargs):
-        """ Kick of root task """
+        """ Start root task and kick off workflow """
         root(context)
-    
-    """
-    def run(self, context, *args, **kwargs):
-        for (name, task) in self.tasks.iteritems():
-            try:
-                self._on_task_start(context, task, name)
-                # See if we have already ran this...
-                result = None
-                if self.result_fetcher:
-                    result = self.result_fetcher(context, name, self)
-                if result is None:
-                    result = task.apply(context, *args, **kwargs)
-                # Keep a pristine copy of the result in the results table
-                # so that if said result is altered by other further states
-                # the one here will not be.
-                self.results[name] = copy.deepcopy(result)
-                self._on_task_finish(context, task, name, result)
-            except Exception as ex:
-                with excutils.save_and_reraise_exception():
-                    try:
-                        self._on_task_error(context, task, name)
-                    except Exception:
-                        LOG.exception(_("Dropping exception catched when"
-                                        " notifying about existing task"
-                                        " exception."))
-                    self.rollback(context,
-                                  workflow.Failure(task, name, self, ex))
+        LOG.info('WF %s has been started' % (self.name,))
 
-    def _on_task_error(self, context, task, name):
-        # Notify any listeners that the task has errored.
-        for i in self.listeners:
-            i.notify(context, workflow.ERRORED, self, task, name)
-
-    def _on_task_start(self, context, task, name):
-        # Notify any listeners that we are about to start the given task.
-        for i in self.listeners:
-            i.notify(context, workflow.STARTING, self, task, name)
-
-    def _on_task_finish(self, context, task, name, result):
-        # Notify any listeners that we are finishing the given task.
-        self.reversions.append((name, task))
-        for i in self.listeners:
-            i.notify(context, workflow.COMPLETED, self, task,
-                     name, result=result)
-
-    def rollback(self, context, cause):
-        for (i, (name, task)) in enumerate(reversed(self.reversions)):
-            try:
-                task.revert(context, self.results[name], cause)
-            except Exception:
-                # Ex: WARN: Failed rolling back stage 1 (validate_request) of
-                #           chain validation due to Y exception.
-                msg = _("Failed rolling back stage %(index)s (%(name)s)"
-                        " of workflow %(workflow)s, due to inner exception.")
-                LOG.warn(msg % {'index': (i + 1), 'stage': name,
-                         'workflow': self.name})
-                if not self.tolerant:
-                    # NOTE(harlowja): LOG a msg AND re-raise the exception if
-                    # the chain does not tolerate exceptions happening in the
-                    # rollback method.
-                    raise
-        if self.parents:
-            # Rollback any parents workflows if they exist...
-            for p in self.parents:
-                p.rollback(context, cause)
-
-    """
-    
+    def set_result(self, task, 
+ 

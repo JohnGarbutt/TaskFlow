@@ -17,6 +17,7 @@
 #    under the License.
 
 import abc
+import uuid
 
 from oslo.config import cfg
 
@@ -42,36 +43,29 @@ class LogBook(object):
         self.uri = resource_uri
 
     @abc.abstractmethod
-    def add_record(self, name, metadata=None):
-        """Atomically adds a new entry to the given logbook with the supplied
-        metadata (if any)."""
+    def register_workflow(self, wf_name):
+        """Atomically adds a new entry for workflows in the logbook"""
+        #Check wfs already saved in logbook
+        #Make sure wf_name doesn't overwrite a previous name
+        #Save wf
+        raise NotImplementedError()   
+
+    @abc.abstractmethod
+    def update_task(self, wf_name, task_name, **kwargs):
+        """Registers a task to a given workflow"""
+        # Pull wf from DB
+        # make sure wf exists
+        # if task name already exists, check instance # and increment
+        # add task to wf with args
+        # write task back to DB
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def fetch_record(self, name):
-        """Fetchs a record with the given name and returns any metadata about
-        said record."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def __contains__(self, name):
-        """Determines if any entry with the given name exists in this
-        logbook."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def mark(self, name, metadata, merge_functor=None):
-        """Marks the given logbook entry (which must exist) with the given
-        metadata, if said entry already exists then the provided merge functor
-        or a default function, will be activated to merge the existing metadata
-        with the supplied metadata."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def __iter__(self):
-        """Iterates over all names and metadata and provides back both of these
-        via a (name, metadata) tuple. The order will be in the same order that
-        they were added."""
+    def delete_workflow(self, wf_name):
+        """Remove WF from DB after WF completion or otherwise"""
+        # Check to see all tasks in WF are success
+        # if not LOG.warning("WARNING: Not all tasks have completed!")
+        # Remove WF from logbook
         raise NotImplementedError()
 
     def close(self):
